@@ -7,6 +7,12 @@
 #include <fstream>
 #include <map>
 #include <vector>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include "english_stem.h"
 #include "meta.h"
 #include "stemming.h"
@@ -15,41 +21,65 @@
 
 using namespace std;
 
-struct pairs{
-	  unsigned short pathPointer;
-	  int position;
-  } locations;
-
-void ProcessDirectory(string directory);
-void ProcessFile(string file);
-void ProcessEntity(struct dirent* entity);
-bool hasEnding (string const &fullString, string const &ending);
-int stringMatchCount(string file);
-void build(string file, int point, map<string, vector<pairs> >& words);
-void search(string word, map<string, vector<pairs> > words);
-
-
 string path = "/home/skon/books/";
 int fileCount = 0;
 int matchCount = 0;
 int fileMatchCount = 0;
 long long wordCount = 0;
 string delimiters = " ,.;:?'\"()[]";
+struct pairs{
+	  unsigned short pathPointer;
+	  int position;
+ };
+map <string, vector <struct pairs> > words;
+vector<string>& filePaths
 
+void ProcessDirectory(string directory);
+void ProcessFile(string file, vector<string>& filePaths);
+void ProcessEntity(struct dirent* entity);
+bool hasEnding (string const &fullString, string const &ending);
+void build(string file, unsigned int point, map<string, vector<struct pairs> >& words);
+//vector<struct pairs> search(string word, map<string, vector<struct pairs> > words);
+void stemmer(string& word);
+ 
+ 
 int main()
 {
-  map <string, vector <pairs> > words;
-  vector<string> filePaths;
+  struct pairs locations, specific;
+  vector<struct pairs> refs;
   string word;
   string directory = "";
+  string display;
+  ifstream infile;
   ProcessDirectory(directory);
   
-  cout << "Please enter a word to search for: ";
+  /*cout << "Please enter a word to search for: ";
   cin >> word;
   transform(word.begin(), word.end(), word.begin(), ::toupper);
   stemmer(word);
+  refs = search(word, words);
   
+  for (unsigned int i = 0; i < refs.size(); i++){
+	  specific = refs[i];
+	  unsigned short currentPathIndex = specific.pathPointer;
+	  string currentPath = filePaths[currentPathIndex];
+	  infile.open(currentPath.c_str());
+	  int pointer = specific.position;
+      infile.seekg (pointer, infile.beg);
+      getline(infile, display);
+      cout << display << endl;
+  }
+  */
   return 0;
+}
+
+void stemmer(string& word) 
+{
+	transform(word.begin(), word.end(), word.begin(), ::toupper);
+    
+    stemming::english_stem<char, std::char_traits<char> > StemEnglish;    
+    
+    StemEnglish(word);
 }
 
 bool hasEnding (string const &fullString, string const &ending) {
@@ -90,7 +120,7 @@ void ProcessDirectory(string directory)
   closedir(dir);
 }
 
-void ProcessEntity(struct dirent* entity, string word)
+void ProcessEntity(struct dirent* entity)
 {
   //find entity type
   if(entity->d_type == DT_DIR)
@@ -102,13 +132,13 @@ void ProcessEntity(struct dirent* entity, string word)
 	}
 
       //it's an directory so process it
-      ProcessDirectory(string(entity->d_name));
+      ProcessDirectory(string(entity->d_name), filePaths);
       return;
     }
 
   if(entity->d_type == DT_REG)
     {//regular file
-      ProcessFile(string(entity->d_name));
+      ProcessFile(string(entity->d_name), filePaths);
       return;
     }
 
@@ -123,16 +153,17 @@ void ProcessFile(string file, vector<string>& filePaths)
   if (hasEnding(file,fileType)) {
   string fullPath = path+file;
   filePaths.push_back(fullPath);
-  int point = filePaths.size() - 1;
+  unsigned int point = filePaths.size() - 1;
   build(fullPath, point, words);
   }
 }
 
-void build(string fullPath, int point, map<string, pairs>& words){
+void build(string fullPath, unsigned int point, map<string, vector<struct pairs> >& words){
 	ifstream infile;
 	string word, line;
 	infile.open(fullPath.c_str());
 	unsigned short pathPosition = point;
+	struct pairs locations;
 	if (infile.good())
     {
         while(!infile.eof())
@@ -145,8 +176,8 @@ void build(string fullPath, int point, map<string, pairs>& words){
             while (found != string::npos)
             {
 				word = line.substr(found2, found-found2);
-				transform(word.begin(), word.end(), word.begin(), ::toupper);
 				stemmer(word);
+				transform(word.begin(), word.end(), word.begin(), ::toupper);
 				locations.pathPointer = pathPosition;
 				locations.position = pos;
 				words[word].push_back(locations);
@@ -156,3 +187,18 @@ void build(string fullPath, int point, map<string, pairs>& words){
 		}
 	}
 }
+
+/*vector<struct pairs> search(string word, map<string, vector<struct pairs> > words){
+	map<string, vector<struct pairs> >::iterator it;
+	vector<struct pairs> blank;
+	transform(word.begin(), word.end(), word.begin(), ::toupper);
+	it = words.find(word);
+	if (it == words.end())
+    {
+        cout << "Sorry, there are no Project Gutenberg books that contain that word" << endl;
+		return (blank);
+    } 
+	else{
+		return (words[word]);
+	}
+}*/
