@@ -32,16 +32,16 @@ struct pairs{
 	  int position;
  };
 map <string, vector <struct pairs> > words;
-vector<string>& filePaths
+vector<string> filePaths;
 
 void ProcessDirectory(string directory);
 void ProcessFile(string file, vector<string>& filePaths);
 void ProcessEntity(struct dirent* entity);
 bool hasEnding (string const &fullString, string const &ending);
 void build(string file, unsigned int point, map<string, vector<struct pairs> >& words);
-//vector<struct pairs> search(string word, map<string, vector<struct pairs> > words);
+vector<struct pairs> search(string word, map<string, vector<struct pairs> > words);
 void stemmer(string& word);
- 
+bool commonWord(string word); 
  
 int main()
 {
@@ -53,7 +53,7 @@ int main()
   ifstream infile;
   ProcessDirectory(directory);
   
-  /*cout << "Please enter a word to search for: ";
+  cout << "Please enter a word to search for: ";
   cin >> word;
   transform(word.begin(), word.end(), word.begin(), ::toupper);
   stemmer(word);
@@ -69,7 +69,7 @@ int main()
       getline(infile, display);
       cout << display << endl;
   }
-  */
+  
   return 0;
 }
 
@@ -132,7 +132,7 @@ void ProcessEntity(struct dirent* entity)
 	}
 
       //it's an directory so process it
-      ProcessDirectory(string(entity->d_name), filePaths);
+      ProcessDirectory(string(entity->d_name));
       return;
     }
 
@@ -151,10 +151,10 @@ void ProcessFile(string file, vector<string>& filePaths)
 {
   string fileType = ".txt";
   if (hasEnding(file,fileType)) {
-  string fullPath = path+file;
-  filePaths.push_back(fullPath);
-  unsigned int point = filePaths.size() - 1;
-  build(fullPath, point, words);
+	string fullPath = path+file;
+	filePaths.push_back(fullPath);
+	unsigned int point = filePaths.size() - 1;
+	build(fullPath, point, words);
   }
 }
 
@@ -178,17 +178,23 @@ void build(string fullPath, unsigned int point, map<string, vector<struct pairs>
 				word = line.substr(found2, found-found2);
 				stemmer(word);
 				transform(word.begin(), word.end(), word.begin(), ::toupper);
-				locations.pathPointer = pathPosition;
-				locations.position = pos;
-				words[word].push_back(locations);
+				if (!commonWord(word)){
+					locations.pathPointer = pathPosition;
+					locations.position = pos;
+					words[word].push_back(locations);
+				}
 				found2 = found + 1;
-                found = line.find(" ", found2);
+				found = line.find(" ", found2);
 			}
 		}
+		cout << pathPosition << endl;
+	}
+	else{
+		;
 	}
 }
 
-/*vector<struct pairs> search(string word, map<string, vector<struct pairs> > words){
+vector<struct pairs> search(string word, map<string, vector<struct pairs> > words){
 	map<string, vector<struct pairs> >::iterator it;
 	vector<struct pairs> blank;
 	transform(word.begin(), word.end(), word.begin(), ::toupper);
@@ -201,4 +207,117 @@ void build(string fullPath, unsigned int point, map<string, vector<struct pairs>
 	else{
 		return (words[word]);
 	}
-}*/
+}
+
+bool commonWord(string word){
+	bool common = false;
+	if (word == "A"){
+		common = true;
+	}else if (word == "THE"){
+		common = true;
+	}else if (word == "IS"){
+		common = true;
+	}else if (word == "AM"){
+		common = true;
+	}else if (word == "ARE"){
+		common = true;
+	}else if (word == "HE"){
+		common = true;
+	}else if (word == "SHE"){
+		common = true;
+	}else if (word == "I"){
+		common = true;
+	}else if (word == "IT"){
+		common = true;
+	}else if (word == "WHO"){
+		common = true;
+	}else if (word == "AT"){
+		common = true;
+	}else if (word == "AND"){
+		common = true;
+	}else if (word == "OR"){
+		common = true;
+	}else if (word == "BUT"){
+		common = true;
+	}else if (word == "IF"){
+		common = true;
+	}else if (word == "ELSE"){
+		common = true;
+	}else if (word == "THEY"){
+		common = true;
+	}else if (word == "YOU"){
+		common = true;
+	}else if (word == "WE"){
+		common = true;
+	}else if (word == "US"){
+		common = true;
+	}else if (word == "HIM"){
+		common = true;
+	}else if (word == "HER"){
+		common = true;
+	}else if (word == "THEM"){
+		common = true;
+	}else if (word == "THEIR"){
+		common = true;
+	}else if (word == "THERE"){
+		common = true;
+	}else if (word == "HERE"){
+		common = true;
+	}else if (word == "AS"){
+		common = true;
+	}else if (word == "BY"){
+		common = true;
+	}else if (word == "ELSE"){
+		common = true;
+	}else if (word == "FOR"){
+		common = true;
+	}else if (word == "DO"){
+		common = true;
+	}else if (word == "GO"){
+		common = true;
+	}else if (word == "HIS"){
+		common = true;
+	}else if (word == "HERS"){
+		common = true;
+	}else if (word == "THEIRS"){
+		common = true;
+	}else if (word == "ITS"){
+		common = true;
+	}else if (word == "IN"){
+		common = true;
+	}else if (word == "ON"){
+		common = true;
+	}else if (word == "JUST"){
+		common = true;
+	}else if (word == "MR"){
+		common = true;
+	}else if (word == "MS"){
+		common = true;
+	}else if (word == "MRS"){
+		common = true;
+	}else if (word == "MISTER"){
+		common = true;
+	}else if (word == "MY"){
+		common = true;
+	}else if (word == "YES"){
+		common = true;
+	}else if (word == "NO"){
+		common = true;
+	}else if (word == "NOR"){
+		common = true;
+	}else if (word == "OF"){
+		common = true;
+	}else if (word == "OFF"){
+		common = true;
+	}else if (word == "OH"){
+		common = true;
+	}else if (word == "OUR"){
+		common = true;
+	}else if (word == "PER"){
+		common = true;
+	}else if (word == "SAY"){
+		common = true;
+	}
+	
+	return common;
+}
