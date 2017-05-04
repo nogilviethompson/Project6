@@ -32,45 +32,21 @@ struct pairs{
 	  int position;
  };
 
-void ProcessDirectory(string directory, vector<string>& filePaths, map<string, vector<struct pairs> >& words);
-void ProcessFile(string file, vector<string>& filePaths, map<string, vector<struct pairs> >& words);
-void ProcessEntity(struct dirent* entity, vector<string>& filePaths, map<string, vector<struct pairs> >& words);
+void ProcessDirectory(string directory, vector<string>& filePaths);
+void ProcessFile(string file, vector<string>& filePaths);
+void ProcessEntity(struct dirent* entity, vector<string>& filePaths);
 bool hasEnding (string const &fullString, string const &ending);
-void build(string file, unsigned int point, map<string, vector<struct pairs> >& words);
-vector<struct pairs> search(string word, map<string, vector<struct pairs> > words);
+void build(string file, unsigned int point);
 void stemmer(string& word);
 bool commonWord(string word); 
  
 int main()
 {
-  struct pairs locations, specific;
-  vector<struct pairs> refs;
-  string word;
   string directory = "";
-  string display;
-  ifstream infile;
-  map <string, vector <struct pairs> > words;
   vector<string> filePaths;
   
-  ProcessDirectory(directory, filePaths, words);
-  
-  cout << "Please enter a word to search for: ";
-  cin >> word;
-  transform(word.begin(), word.end(), word.begin(), ::tolower);
-  stemmer(word);
-  refs = search(word, words);
-  
-  for (unsigned int i = 0; i < refs.size(); i++){
-	  specific = refs[i];
-	  unsigned short currentPathIndex = specific.pathPointer;
-	  string currentPath = filePaths[currentPathIndex];
-	  infile.open(currentPath.c_str());
-	  int pointer = specific.position;
-      infile.seekg (pointer, infile.beg);
-      getline(infile, display);
-      cout << display << endl;
-  }
-  
+  ProcessDirectory(directory, filePaths);
+   
   return 0;
 }
 
@@ -91,7 +67,7 @@ bool hasEnding (string const &fullString, string const &ending) {
   }
 }
 
-void ProcessDirectory(string directory, vector<string>& filePaths, map<string, vector<struct pairs> >& words){
+void ProcessDirectory(string directory, vector<string>& filePaths){
   string dirToOpen = path + directory;
   DIR *dir;
   dir = opendir(dirToOpen.c_str());
@@ -111,7 +87,7 @@ void ProcessDirectory(string directory, vector<string>& filePaths, map<string, v
 
   while(entity != NULL)
     {
-      ProcessEntity(entity, filePaths, words);
+      ProcessEntity(entity, filePaths);
       entity = readdir(dir);
     }
 
@@ -120,8 +96,7 @@ void ProcessDirectory(string directory, vector<string>& filePaths, map<string, v
   closedir(dir);
 }
 
-void ProcessEntity(struct dirent* entity, vector<string>& filePaths, map<string, vector<struct pairs> >& words)
-{
+void ProcessEntity(struct dirent* entity, vector<string>& filePaths){
   //find entity type
   if(entity->d_type == DT_DIR)
     {//it's an direcotry
@@ -132,13 +107,13 @@ void ProcessEntity(struct dirent* entity, vector<string>& filePaths, map<string,
 	}
 
       //it's an directory so process it
-      ProcessDirectory(string(entity->d_name), filePaths, words);
+      ProcessDirectory(string(entity->d_name), filePaths);
       return;
     }
 
   if(entity->d_type == DT_REG)
     {//regular file
-      ProcessFile(string(entity->d_name), filePaths, words);
+      ProcessFile(string(entity->d_name), filePaths);
       return;
     }
 
@@ -147,23 +122,23 @@ void ProcessEntity(struct dirent* entity, vector<string>& filePaths, map<string,
   cout << "Not a file or directory: " << entity->d_name << endl;
 }
 
-void ProcessFile(string file, vector<string>& filePaths, map<string, vector<struct pairs> >& words)
-{
+void ProcessFile(string file, vector<string>& filePaths){
   string fileType = ".txt";
   if (hasEnding(file,fileType)) {
 	string fullPath = path+file;
 	filePaths.push_back(fullPath);
 	unsigned int point = filePaths.size() - 1;
-	build(fullPath, point, words);
+	build(fullPath, point);
   }
 }
 
-void build(string fullPath, unsigned int point, map<string, vector<struct pairs> >& words){
+void build(string fullPath, unsigned int point){
 	ifstream infile;
 	string word, line;
 	infile.open(fullPath.c_str());
 	unsigned short pathPosition = point;
 	struct pairs locations;
+	string newPath = path+"/files/";
 	if (infile.good())
     {
         while(!infile.eof())
@@ -181,7 +156,15 @@ void build(string fullPath, unsigned int point, map<string, vector<struct pairs>
 				if (commonWord(word) == false){
 					locations.pathPointer = pathPosition;
 					locations.position = pos;
-					words[word].push_back(locations);
+					newPath = newPath+word;
+					ofstream myfile(newPath.c_str(), ios::out | ios::binary | ios:: app);
+					if (myfile.is_open()) {
+							struct pairs value = locations;
+							myfile.write((char*)&value, sizeof(struct pairs));
+							myfile.close();
+					} else {
+						cout << "Unable to open file";
+					}
 				}
 				found2 = found + 1;
 				found = line.find(" ", found2);
@@ -194,24 +177,14 @@ void build(string fullPath, unsigned int point, map<string, vector<struct pairs>
 	}
 }
 
-vector<struct pairs> search(string word, map<string, vector<struct pairs> > words){
-	map<string, vector<struct pairs> >::iterator it;
-	vector<struct pairs> blank;
-	transform(word.begin(), word.end(), word.begin(), ::toupper);
-	it = words.find(word);
-	if (it == words.end())
-    {
-        cout << "Sorry, there are no Project Gutenberg books that contain that word" << endl;
-		return (blank);
-    } 
-	else{
-		return (words[word]);
-	}
-}
-
 bool commonWord(string word){
 	bool common = false;
-	if (word == "a"){
+	size_t found = word.find_first_not_of("abcdefghijklmnopqrstuvwxyz ");
+	
+	if (found != string::npos){
+		common = true;
+	}
+	else if (word.length() <= 3){
 		common = true;
 	}
 	else if (word == "about"){
@@ -229,34 +202,7 @@ bool commonWord(string word){
 	else if (word == "against"){
 		common = true;
 	}
-	else if (word == "all"){
-		common = true;
-	}
-	else if (word == "am"){
-		common = true;
-	}
-	else if (word == "an"){
-		common = true;
-	}
-	else if (word == "and"){
-		common = true;
-	}
-	else if (word == "any"){
-		common = true;
-	}
-	else if (word == "are"){
-		common = true;
-	}
 	else if (word == "aren't"){
-		common = true;
-	}
-	else if (word == "as"){
-		common = true;
-	}
-	else if (word == "at"){
-		common = true;
-	}
-	else if (word == "be"){
 		common = true;
 	}
 	else if (word == "because"){
@@ -280,12 +226,6 @@ bool commonWord(string word){
 	else if (word == "both"){
 		common = true;
 	}
-	else if (word == "but"){
-		common = true;
-	}
-	else if (word == "by"){
-		common = true;
-	}
 	else if (word == "can't"){
 		common = true;
 	}
@@ -298,13 +238,7 @@ bool commonWord(string word){
 	else if (word == "couldn't"){
 		common = true;
 	}
-	else if (word == "did"){
-		common = true;
-	}
 	else if (word == "didn't"){
-		common = true;
-	}
-	else if (word == "do"){
 		common = true;
 	}
 	else if (word == "does"){
@@ -328,25 +262,13 @@ bool commonWord(string word){
 	else if (word == "each"){
 		common = true;
 	}
-	else if (word == "few"){
-		common = true;
-	}
-	else if (word == "for"){
-		common = true;
-	}
 	else if (word == "from"){
 		common = true;
 	}
 	else if (word == "further"){
 		common = true;
 	}
-	else if (word == "had"){
-		common = true;
-	}
 	else if (word == "hadn't"){
-		common = true;
-	}
-	else if (word == "has"){
 		common = true;
 	}
 	else if (word == "hasn't"){
@@ -361,9 +283,6 @@ bool commonWord(string word){
 	else if (word == "having"){
 		common = true;
 	}
-	else if (word == "he"){
-		common = true;
-	}
 	else if (word == "he'd"){
 		common = true;
 	}
@@ -371,9 +290,6 @@ bool commonWord(string word){
 		common = true;
 	}
 	else if (word == "he's"){
-		common = true;
-	}
-	else if (word == "her"){
 		common = true;
 	}
 	else if (word == "here"){
@@ -388,58 +304,25 @@ bool commonWord(string word){
 	else if (word == "herself"){
 		common = true;
 	}
-	else if (word == "him"){
-		common = true;
-	}
 	else if (word == "himself"){
-		common = true;
-	}
-	else if (word == "his"){
-		common = true;
-	}
-	else if (word == "how"){
 		common = true;
 	}
 	else if (word == "how's"){
 		common = true;
 	}
-	else if (word == "i"){
-		common = true;
-	}
-	else if (word == "i'd"){
-		common = true;
-	}
 	else if (word == "i'll"){
-		common = true;
-	}
-	else if (word == "i'm"){
 		common = true;
 	}
 	else if (word == "i've"){
 		common = true;
 	}
-	else if (word == "if"){
-		common = true;
-	}
-	else if (word == "in"){
-		common = true;
-	}
 	else if (word == "into"){
-		common = true;
-	}
-	else if (word == "is"){
 		common = true;
 	}
 	else if (word == "isn't"){
 		common = true;
 	}
-	else if (word == "it"){
-		common = true;
-	}
 	else if (word == "it's"){
-		common = true;
-	}
-	else if (word == "its"){
 		common = true;
 	}
 	else if (word == "itself"){
@@ -448,22 +331,10 @@ bool commonWord(string word){
 	else if (word == "let's"){
 		common = true;
 	}
-	else if (word == "me"){
-		common = true;
-	}
 	else if (word == "more"){
 		common = true;
 	}
 	else if (word == "most"){
-		common = true;
-	}
-	else if (word == "mr"){
-		common = true;
-	}
-	else if (word == "mrs"){
-		common = true;
-	}
-	else if (word == "ms"){
 		common = true;
 	}
 	else if (word == "must"){
@@ -472,28 +343,7 @@ bool commonWord(string word){
 	else if (word == "mustn't"){
 		common = true;
 	}
-	else if (word == "my"){
-		common = true;
-	}
 	else if (word == "myself"){
-		common = true;
-	}
-	else if (word == "no"){
-		common = true;
-	}
-	else if (word == "nor"){
-		common = true;
-	}
-	else if (word == "not"){
-		common = true;
-	}
-	else if (word == "of"){
-		common = true;
-	}
-	else if (word == "off"){
-		common = true;
-	}
-	else if (word == "on"){
 		common = true;
 	}
 	else if (word == "once"){
@@ -502,16 +352,10 @@ bool commonWord(string word){
 	else if (word == "only"){
 		common = true;
 	}
-	else if (word == "or"){
-		common = true;
-	}
 	else if (word == "other"){
 		common = true;
 	}
 	else if (word == "ought"){
-		common = true;
-	}
-	else if (word == "our"){
 		common = true;
 	}
 	else if (word == "ours"){
@@ -520,13 +364,7 @@ bool commonWord(string word){
 	else if (word == "ourselves"){
 		common = true;
 	}
-	else if (word == "out"){
-		common = true;
-	}
 	else if (word == "over"){
-		common = true;
-	}
-	else if (word == "own"){
 		common = true;
 	}
 	else if (word == "same"){
@@ -536,9 +374,6 @@ bool commonWord(string word){
 		common = true;
 	}
 	else if (word == "shan't"){
-		common = true;
-	}
-	else if (word == "she"){
 		common = true;
 	}
 	else if (word == "she'd"){
@@ -556,9 +391,6 @@ bool commonWord(string word){
 	else if (word == "shouldn't"){
 		common = true;
 	}
-	else if (word == "so"){
-		common = true;
-	}
 	else if (word == "some"){
 		common = true;
 	}
@@ -572,9 +404,6 @@ bool commonWord(string word){
 		common = true;
 	}
 	else if (word == "that's"){
-		common = true;
-	}
-	else if (word == "the"){
 		common = true;
 	}
 	else if (word == "their"){
@@ -625,9 +454,6 @@ bool commonWord(string word){
 	else if (word == "through"){
 		common = true;
 	}
-	else if (word == "to"){
-		common = true;
-	}
 	else if (word == "too"){
 		common = true;
 	}
@@ -637,19 +463,10 @@ bool commonWord(string word){
 	else if (word == "until"){
 		common = true;
 	}
-	else if (word == "up"){
-		common = true;
-	}
 	else if (word == "very"){
 		common = true;
 	}
-	else if (word == "was"){
-		common = true;
-	}
 	else if (word == "wasn't"){
-		common = true;
-	}
-	else if (word == "we"){
 		common = true;
 	}
 	else if (word == "we'd"){
@@ -694,22 +511,13 @@ bool commonWord(string word){
 	else if (word == "while"){
 		common = true;
 	}
-	else if (word == "who"){
-		common = true;
-	}
 	else if (word == "who's"){
 		common = true;
 	}
 	else if (word == "whom"){
 		common = true;
 	}
-	else if (word == "why"){
-		common = true;
-	}
 	else if (word == "why's"){
-		common = true;
-	}
-	else if (word == "with"){
 		common = true;
 	}
 	else if (word == "won't"){
@@ -719,9 +527,6 @@ bool commonWord(string word){
 		common = true;
 	}
 	else if (word == "wouldn't"){
-		common = true;
-	}
-	else if (word == "you"){
 		common = true;
 	}
 	else if (word == "you'd"){
