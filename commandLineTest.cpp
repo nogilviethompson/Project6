@@ -31,22 +31,61 @@ struct pairs{
 	  unsigned short pathPointer;
 	  int position;
  };
+vector<string> titles;
+vector<string> filePaths;
+map<string, vector<struct pairs> > words;
 
-void ProcessDirectory(string directory, vector<string>& filePaths);
-void ProcessFile(string file, vector<string>& filePaths);
-void ProcessEntity(struct dirent* entity, vector<string>& filePaths);
+void ProcessDirectory(string directory);
+void ProcessFile(string file);
+void ProcessEntity(struct dirent* entity);
 bool hasEnding (string const &fullString, string const &ending);
 void build(string file, unsigned int point);
 void stemmer(string& word);
-bool commonWord(string word); 
+bool commonWord(string word);
+void writeFiles(map<string, vector<struct pairs> > mymap);
  
 int main()
 {
   string directory = "";
-  vector<string> filePaths;
+  string wordsPath = "/home/students/ogilviethompsonh/project6/bins/";
+  string word, search, filename, book, title, display;
+  struct pairs current;
+  ifstream infile;
   
-  ProcessDirectory(directory, filePaths);
-   
+  ProcessDirectory(directory);
+  writeFiles(words);
+  words.clear();
+  
+  cout << "Please enter the word you'd like to search for: ";
+  cin >> search;
+  word = search;
+  stemmer(search);
+  
+  if (commonWord(search) == true){
+	  cout << "Sorry, but you cannot search for that word" << endl;
+  }
+  else{
+	  filename = wordsPath + search + ".bin";
+	  ifstream myfile(filename.c_str(), ios::in | ios::binary);
+	  if (myfile.is_open()) {
+		cout << "The following lines from the following books contain the word " << search << ":" << endl;
+		while (!myfile.eof()) {
+			myfile.read((char*)&current,sizeof(struct pairs));
+			title = titles[current.pathPointer];
+			book = filePaths[current.pathPointer];
+			infile.open(book.c_str());
+			if (infile.good()){
+				infile.seekg (current.position, infile.beg);
+				getline(infile, display);
+				cout << title << ": " << display << endl;
+			}
+		}
+		myfile.close();
+	  }
+	  else {
+		cout << "Unable to open bin" << endl;
+	  }
+  }
   return 0;
 }
 
@@ -67,7 +106,7 @@ bool hasEnding (string const &fullString, string const &ending) {
   }
 }
 
-void ProcessDirectory(string directory, vector<string>& filePaths){
+void ProcessDirectory(string directory){
   string dirToOpen = path + directory;
   DIR *dir;
   dir = opendir(dirToOpen.c_str());
@@ -87,7 +126,7 @@ void ProcessDirectory(string directory, vector<string>& filePaths){
 
   while(entity != NULL)
     {
-      ProcessEntity(entity, filePaths);
+      ProcessEntity(entity);
       entity = readdir(dir);
     }
 
@@ -96,7 +135,7 @@ void ProcessDirectory(string directory, vector<string>& filePaths){
   closedir(dir);
 }
 
-void ProcessEntity(struct dirent* entity, vector<string>& filePaths){
+void ProcessEntity(struct dirent* entity){
   //find entity type
   if(entity->d_type == DT_DIR)
     {//it's an direcotry
@@ -107,13 +146,13 @@ void ProcessEntity(struct dirent* entity, vector<string>& filePaths){
 	}
 
       //it's an directory so process it
-      ProcessDirectory(string(entity->d_name), filePaths);
+      ProcessDirectory(string(entity->d_name));
       return;
     }
 
   if(entity->d_type == DT_REG)
     {//regular file
-      ProcessFile(string(entity->d_name), filePaths);
+      ProcessFile(string(entity->d_name));
       return;
     }
 
@@ -122,7 +161,7 @@ void ProcessEntity(struct dirent* entity, vector<string>& filePaths){
   cout << "Not a file or directory: " << entity->d_name << endl;
 }
 
-void ProcessFile(string file, vector<string>& filePaths){
+void ProcessFile(string file){
   string fileType = ".txt";
   if (hasEnding(file,fileType)) {
 	string fullPath = path+file;
@@ -134,11 +173,15 @@ void ProcessFile(string file, vector<string>& filePaths){
 
 void build(string fullPath, unsigned int point){
 	ifstream infile;
-	string word, line;
+	string word, line, title, filename;
+	int lineNumber, marker;
 	infile.open(fullPath.c_str());
 	unsigned short pathPosition = point;
 	struct pairs locations;
-	string newPath = path+"/files/";
+	
+	lineNumber = 0;
+	marker = 0;
+	
 	if (infile.good())
     {
         while(!infile.eof())
@@ -146,8 +189,22 @@ void build(string fullPath, unsigned int point){
 //Find the position of the line in the file then get the line
 			int pos = infile.tellg();
             getline(infile, line);
+			size_t found = line.find("Title: ");
+			if (lineNumber < 20){
+				if (found != string::npos && marker == 0){
+					found = found + 7;
+					title = line.substr(found);
+					titles.push_back(title);
+					marker = 1;
+				}
+			}
+			
+			if (lineNumber > 20 && marker == 0){
+				title = "Unknown";
+				titles.push_back(title);
+			}
             size_t found2 = 0;
-            size_t found = line.find(" ");
+            found = line.find(" ");
             while (found != string::npos)
             {
 				word = line.substr(found2, found-found2);
@@ -156,24 +213,42 @@ void build(string fullPath, unsigned int point){
 				if (commonWord(word) == false){
 					locations.pathPointer = pathPosition;
 					locations.position = pos;
-					newPath = newPath+word;
-					ofstream myfile(newPath.c_str(), ios::out | ios::binary | ios:: app);
-					if (myfile.is_open()) {
-							struct pairs value = locations;
-							myfile.write((char*)&value, sizeof(struct pairs));
-							myfile.close();
-					} else {
-						cout << "Unable to open file";
-					}
+					words[word].push_back(locations);
 				}
 				found2 = found + 1;
 				found = line.find(" ", found2);
 			}
+			lineNumber=lineNumber+1;
 		}
 		cout << pathPosition << endl;
 	}
 	else{
 		;
+	}
+
+	if (words.size() > 50000){
+		writeFiles(words);
+		words.clear();
+		cout << "Written" << endl;
+	}
+}
+
+void writeFiles(map<string, vector<struct pairs> > mymap){
+	for (map<string, vector<struct pairs> >::iterator it=mymap.begin(); it!=mymap.end(); it++){
+		string word = it->first;
+		vector<struct pairs> current = mymap[word];
+		string filename = "/home/students/ogilviethompsonh/project6/bins/" + word +".bin";
+		ofstream myfile(filename.c_str(), ios::out | ios::binary | ios:: app);
+		if (myfile.is_open()) {
+			for (unsigned int i = 0; i < current.size(); i++){
+				struct pairs value = current[i];
+				myfile.write((char*)&value, sizeof(struct pairs));
+			}
+			myfile.close();
+		}
+		else {
+			cout << "Unable to open file" << endl;
+		}
 	}
 }
 
