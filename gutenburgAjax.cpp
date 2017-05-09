@@ -39,7 +39,6 @@ int main() {
 	sendfifo.send(search);
   
 	cout << "Content-Type: text/plain\n\n";
-	cout << "<p> check </p>";
 	/* Get a message from a server and then cout it*/
 	/* Repeat until the $END signal is received */
 	recfifo.openread();
