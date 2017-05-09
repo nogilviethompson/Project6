@@ -17,8 +17,8 @@
 
 using namespace std;
 
-string receive_fifo = "messageRequest";
-string send_fifo = "messageReply";
+string receive_fifo = "messageReply";
+string send_fifo = "messageRequest";
 
 int main() {
 	cgicc::Cgicc cgi;    // Ajax object
@@ -39,6 +39,7 @@ int main() {
 	sendfifo.send(search);
   
 	cout << "Content-Type: text/plain\n\n";
+	cout << "<p> check </p>";
 	/* Get a message from a server and then cout it*/
 	/* Repeat until the $END signal is received */
 	recfifo.openread();

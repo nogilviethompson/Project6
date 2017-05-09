@@ -18,7 +18,6 @@
 #include "stemming.h"
 #include "string_util.h"
 #include "utilities.h"
-#include "fifo.h"
 
 using namespace std;
 
@@ -30,8 +29,7 @@ struct pairs{
  };
 vector<string> names;
 vector<string> filePaths;
-string receive_fifo = "messageRequest";
-string send_fifo = "messageReply";
+long wordCount;
 
 void ProcessDirectory(string directory);
 void ProcessFile(string file);
@@ -44,69 +42,55 @@ void writeFiles(map<string, vector<struct pairs> > mymap);
  
 int main()
 {
-	string directory = "";
-	string wordsPath = "/home/students/ogilviethompsonh/project6/bins/";
-	string word, search, filename, book, title, display, message;
-	struct pairs current;
-	ifstream infile;
- 	
-	ProcessDirectory(directory);
-
-	Fifo recfifo(receive_fifo);
-	Fifo sendfifo(send_fifo);
-	
-	while(1){
-		recfifo.openread();
-		search = recfifo.recv();
-		word = search;
-		stemmer(search);
+  string directory = "";
+  string wordsPath = "/home/students/ogilviethompsonh/project6/bins/";
+  string word, search, filename, book, display, title, output;
+  struct pairs current;
+  ifstream infile;
   
-		if (commonWord(search) == true){
-			sendfifo.openwrite();
-			message = "Sorry, but you cannot search for " + word;
-			cout << message << endl;
-			sendfifo.send(message);
-			sendfifo.send("$END");
-		}
-		
-		else{
-			filename = wordsPath + search + ".bin";
-			ifstream myfile(filename.c_str(), ios::in | ios::binary);
-			if (myfile.is_open()) {
-				sendfifo.openwrite();
-				message = "The following lines from the following books contain the word " + word + ":";
-				sendfifo.send(message);
-				while (!myfile.eof()) {
-					myfile.read((char*)&current,sizeof(struct pairs));
-					book = filePaths[current.pathPointer];
-					infile.open(book.c_str());
-					title = names[current.pathPointer];
-					if (infile.good()){
-						infile.seekg (current.position, infile.beg);
-						getline(infile, display);
-						message = title + ": " + display;
-						sendfifo.send(message);
-						infile.close();
-					}
+  wordCount = 0;
+  
+  ProcessDirectory(directory);
+
+  while(1){
+	  
+  cout << "Please enter the word you'd like to search for: ";
+  cin >> search;
+  word = search;
+  stemmer(search);
+  
+  if (commonWord(search) == true){
+	  cout << "Sorry, but you cannot search for that word" << endl;
+  }
+  else{
+	  filename = wordsPath + search + ".bin";
+	  ifstream myfile(filename.c_str(), ios::in | ios::binary);
+	  if (myfile.is_open()) {
+		cout << "The following lines from the following books contain the word " << search << ":" << endl;
+		while (!myfile.eof()) {
+			myfile.read((char*)&current,sizeof(struct pairs));
+			book = filePaths[current.pathPointer];
+			infile.open(book.c_str());
+			//title;
+			//title = names[current.pathPointer];
+			if (infile.good()){
+				infile.seekg (current.position, infile.beg);
+				getline(infile, display);
+				cout << display << /*"(from " << title << ")" << */endl;
+				infile.close();
+			}
 			
-					if(myfile.eof()){
-						break;
-					}
-				}
-			myfile.close();
-			sendfifo.send("$END");
-			}
-			else {
-				cout << "That word is not found in Project Gutenberg" << endl;
-				sendfifo.send("That word is not found in Project Gutenberg");
-				sendfifo.send("$END");
+			if(myfile.eof()){
+				break;
 			}
 		}
-		
-		recfifo.fifoclose();
-		sendfifo.fifoclose();
-	}
-	
+		myfile.close();
+	  }
+	  else {
+		cout << "Unable to open bin" << endl;
+	  }
+  }
+  }
   return 0;
 }
 
